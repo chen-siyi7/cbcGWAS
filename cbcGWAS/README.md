@@ -82,7 +82,7 @@ paths relative to the repo root.
 ### 1. Verify the math on synthetic data (10 seconds, base R only)
 
 ```bash
-git clone https://github.com/sychen-lsuhsc/cbcGWAS
+git clone https://github.com/chen-siyi7/cbcGWAS
 cd cbcGWAS
 Rscript tests/synthetic_test.R
 ```
@@ -208,15 +208,10 @@ and TwoSampleMR software stacks.
 
 MIT. See `LICENSE`.
 
-The author thanks colleagues at the LSU Health Sciences Center New Orleans
-School of Public Health, and acknowledges the open-source software developers
-whose tools (LDSC, GCTA/mtCOJO, Slope-Hunter, MVMR-cML, MVMR-cML-bias-correction,
-MendelianRandomization, TwoSampleMR, REGENIE, SAIGE) made this work possible.
-
 ---
 
 ## Issues and contact
 
-Please file issues at <https://github.com/sychen-lsuhsc/cbcGWAS/issues>.
+Please file issues at <https://github.com/chen-siyi7/cbcGWAS/issues>.
 For correspondence regarding the manuscript, contact Siyi Chen at LSU
 Health Sciences Center New Orleans (email in the manuscript).
