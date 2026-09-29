@@ -1,217 +1,171 @@
 # cbcGWAS
 
-R code accompanying:
+R functions for converting covariate-adjusted binary GWAS associations to a
+liability scale, with simulation code from the revised manuscript.
 
-> **Conditional-prevalence correction for liability-scale conversion of
-> covariate-adjusted binary GWAS.**
-> Siyi Chen, LSU Health Sciences Center New Orleans (manuscript under review).
+The package separates two steps: estimating and subtracting a collider-bias
+contribution, and converting the remaining association to liability units.
+It provides the marginal factor, the conditional-prevalence approximation,
+and the working-logistic factor. The latter solves the null logistic score
+equations and accounts for the sample case fraction.
 
-This repository reproduces every numerical result in the main text and
-supplement, and provides the real-data pipeline applying the correction to
-published Alzheimer's disease and BMI/T2D GWAS summary statistics.
+## Installation
 
----
-
-## What the correction does
-
-A standard liability-scale conversion divides a log-odds GWAS coefficient by
-
-```
-lambda_marg = phi(t) / [p (1 - p)]
-```
-
-where `p` is the population disease prevalence and `t = Phi^{-1}(1 - p)`. This
-factor is correct for *unadjusted* binary GWAS. When the GWAS coefficient is
-estimated *conditional* on heritable covariates, the correct factor is
-
-```
-lambda_cond  >=  lambda_marg
-```
-
-a quantity that depends additionally on `rho^2`, the liability variance
-explained by the adjusted covariates. The ratio
-
-```
-kappa_score = lambda_cond / lambda_marg  >=  1
-```
-
-is the bias factor of the standard conversion. This repository computes
-`lambda_cond` via Gauss-Hermite quadrature and applies it consistently across
-heritability conversion, polygenic-score scaling, genetic correlation, and
-univariable / multivariable Mendelian randomization.
-
-For BMI-adjusted T2D at `(p, rho^2) = (0.10, 0.30)` the correction is
-sizeable: `kappa_score ≈ 1.148`, a ~13 % bias under the marginal default.
-For APOE-adjusted Alzheimer's disease the correction is small:
-`kappa_score ≈ 1.01` to `1.04` across plausible APOE liability shares.
-
----
-
-## Repository layout
-
-```
-cbcGWAS/
-├── R/
-│   ├── sims/
-│   │   ├── cbcGWAS_replication.R     # all manuscript / supplement tables
-│   │   ├── downstream_simulations.R   # heritability + PGS sims (§3.6, §3.7)
-│   │   └── run_high_R.R               # high-precision R = 800 reruns
-│   └── realdata/
-│       ├── helpers.R                  # column dictionary, preflight, sumstat normalizer
-│       ├── ad_ldsc.R                  # LDSC heritability + κ-correction (§4.2.1)
-│       └── bmi_t2d_mr.R               # IVW MR + κ-correction (§4.2.2)
-├── tests/
-│   └── synthetic_test.R               # no-dependency sanity check (recommended first run)
-├── examples/
-│   ├── 01_basic_factors.R             # minimal κ-correction example
-│   └── 02_table_kappa.R               # reproduce manuscript Table 1
-├── data/                              # (empty; user supplies GWAS sumstats)
-├── DEPENDENCIES.md                    # full package list with versions
-├── LICENSE                            # MIT
-└── README.md                          # this file
-```
-
-All scripts assume you `cd` into the repository root and run them from there
-(e.g. `Rscript R/sims/cbcGWAS_replication.R`). Internal `source()` calls use
-paths relative to the repo root.
-
----
-
-## Quick start
-
-### 1. Verify the math on synthetic data (10 seconds, base R only)
-
-```bash
-git clone https://github.com/chen-siyi7/cbcGWAS
-cd cbcGWAS
-Rscript tests/synthetic_test.R
-```
-
-You should see four `PASS ... TRUE` lines and `=== ALL TESTS PASS: TRUE ===`.
-This confirms the κ-correction logic on simulated ground truth before any
-external dependencies are touched.
-
-### 2. Reproduce a manuscript table
-
-```r
-# from R, with working directory = repo root
-source("R/sims/cbcGWAS_replication.R")
-table_kappa()        # Table 1: kappa_score across (p, rho^2)
-table_no_collider()  # Table 2: simple-design simulations
-```
-
-`run_all()` reproduces every table at the seeds used in the manuscript;
-expect 30–60 minutes on a recent laptop.
-
-### 3. Reproduce the §3.6–3.7 downstream simulations
-
-```bash
-Rscript R/sims/downstream_simulations.R 2>&1 | tee downstream_sim.log
-```
-
-Wall time: ~5 s for heritability, ~3–4 min for the polygenic-score table.
-
-### 4. Real-data pipelines (require external GWAS files; see below)
-
-```bash
-# Edit the CONFIG block at the top of the script to point at your local files.
-# Run with phase = "PREFLIGHT" first, then "RUN".
-Rscript R/realdata/ad_ldsc.R
-Rscript R/realdata/bmi_t2d_mr.R
-```
-
----
-
-## Dependencies
-
-**Simulations only** (`R/sims/`, `tests/`): base R ≥ 4.0, plus
-
-* `statmod` (Gauss-Hermite nodes for `lambda_cond`)
-* `mvtnorm` (correlated sampling in some simulations)
+Install the core dependencies, then install the source archive:
 
 ```r
 install.packages(c("statmod", "mvtnorm"))
+install.packages("cbcGWAS_0.1.0.tar.gz", repos = NULL, type = "source")
+library(cbcGWAS)
 ```
 
-**Real-data pipelines** also need:
+Alternatively, extract the GitHub ZIP and install the `cbcGWAS` directory:
 
-* `data.table` — sumstat I/O
-* `GenomicSEM` — LDSC munging and ldsc h² estimation
-* `TwoSampleMR`, `ieugwasr`, `genetics.binaRies` — MR pipeline (local clumping)
-* PLINK v1.9 binary — invoked by `ieugwasr::ld_clump_local`
-* 1000 Genomes EUR PLINK reference for clumping (~1 GB)
-* HapMap3 reference SNP list `w_hm3.snplist` and `eur_w_ld_chr/` LDSC reference
-  (~5 GB unpacked)
+```sh
+R CMD INSTALL cbcGWAS
+```
 
-Full installation instructions are in `DEPENDENCIES.md`.
+R 4.1.0 or later is required. No compilation is needed. A GitHub repository
+address can be added to `DESCRIPTION` after the repository has been created.
 
-The pipelines do **not** redistribute any GWAS summary statistics; the user
-downloads them from the original sources (Bellenguez et al. 2022 via
-GWAS Catalog GCST90027158; Yengo et al. 2018 from GIANT; Mahajan et al.
-2018 from DIAGRAM).
+## Conversion factors
 
----
+```r
+library(cbcGWAS)
 
-## What each script reproduces
+# Population prevalence and covariate-explained liability variance
+p <- 0.10
+rho2 <- 0.30
 
-| Manuscript element | Script(s) | Function |
-|---|---|---|
-| Closed-form factors (Table 1) | `R/sims/cbcGWAS_replication.R` | `table_kappa()` |
-| Simple-design simulations (Table 2) | `R/sims/cbcGWAS_replication.R` | `table_no_collider()` |
-| Collider-aware simulations (Table 3) | `R/sims/cbcGWAS_replication.R` | `table_collider()` |
-| MVMR simulations (Table 4) | `R/sims/cbcGWAS_replication.R` | `table_mvmr()` |
-| Heritability simulation (Table 5) | `R/sims/downstream_simulations.R` | `table_heritability()` |
-| Polygenic-score simulation (Table 6) | `R/sims/downstream_simulations.R` | `table_pgs()` |
-| Wald-test invariance (Table S1) | `R/sims/cbcGWAS_replication.R` | `table_wald()` |
-| Sensitivity to ρ² misspecification (Table S2) | `R/sims/cbcGWAS_replication.R` | `table_sensitivity()` |
-| Prentice–Pyke case-control (Table S3) | `R/sims/cbcGWAS_replication.R` | `table_cc()` |
-| Bias-slope estimator recovery (Table S5) | `R/sims/cbcGWAS_replication.R` | `table_slope_estimators()` |
-| Non-IVW MVMR estimators (Table S11) | `R/sims/cbcGWAS_replication.R` | `table_non_ivw_mvmr()` |
-| AD heritability (§4.2.1) | `R/realdata/ad_ldsc.R` | `Rscript R/realdata/ad_ldsc.R` |
-| BMI→T2D MR (§4.2.2) | `R/realdata/bmi_t2d_mr.R` | `Rscript R/realdata/bmi_t2d_mr.R` |
+lambda_marginal(p)
+lambda_approx(p, rho2)
+lambda_working(p, rho2)$lambda
 
-Tables S3, S5, S6 can be re-run at the higher precision used for some
-sensitivity analyses via `Rscript R/sims/run_high_R.R` (R = 800 replicates,
-~8 minutes).
+# Case-control GWAS with half cases
+factor <- lambda_working(p, rho2, pi = 0.50)$lambda
 
----
+# Example coefficient after subtracting a separately estimated bias term
+adjusted_log_odds <- 0.12
+estimated_bias_term <- 0.02
+liability_effect <- (adjusted_log_odds - estimated_bias_term) / factor
+```
 
-## Reproducibility
+These calculations use a Gaussian liability model and a first-order expansion
+in small genetic effects. `p` is population prevalence; `pi` is the case fraction
+in the GWAS sample. The conditional-prevalence approximation and the
+working-logistic factor are distinct quantities. Bias identification depends
+on the chosen estimator's assumptions.
 
-Every simulation function fixes a deterministic seed via the `SEED_BASE`
-constant at the top of `R/sims/cbcGWAS_replication.R` (and re-seeds inside
-`downstream_simulations.R`). Re-running with the same R version and package
-versions (see `DEPENDENCIES.md`) reproduces the manuscript numbers
-bit-for-bit.
+The functions and their return values are documented in R:
 
-The only stochastic component left is in `R/realdata/bmi_t2d_mr.R`, where
-the LD-clumping output depends on the exact PLINK version and 1000 Genomes
-reference; we report the harmonized SNP count (K = 505) and the realised
-estimates explicitly so a re-run can be checked for consistency rather than
-identity.
+```r
+?lambda_working
+?bias_cwls
+?run_simulations
+help(package = "cbcGWAS")
+```
 
----
+| Task | Functions |
+| --- | --- |
+| Conversion | `lambda_marginal()`, `lambda_approx()`, `lambda_working()`, `kappa_cond()` |
+| Individual-level associations | `logistic_gwas()`, `linear_gwas()` |
+| Population calibration | `probit_rho2()`, `fitted_variance_factor()` |
+| Bias-slope estimation | `bias_cwls()`, `bias_slopehunter()` |
+| Mendelian randomization | `mr_ivw()`, `mr_raps()`, `mvmr_ivw()` |
+| Simulations | `run_simulations()`, `simulate_collider()`, `simulate_end_to_end()`, `summarize_end_to_end()` |
 
-## Citation
+The original names `lambda_marg()`, `lambda_cond_gauss()`, `kappa_score()`,
+`bias_dudbridge()`, and `ivw_mr()` remain available for existing analysis code.
+`kappa_score()` refers to the conditional-prevalence approximation.
 
-If you use this code, please cite the manuscript (currently under review;
-this README will be updated with the journal reference upon acceptance).
-The bibliography in the manuscript also cites the upstream methods this
-work composes with — most importantly Aschard et al. 2015, Lee et al. 2011,
-Mahmoud et al. 2022 (Slope-Hunter), Dudbridge et al. 2019 (index-event),
-Wang et al. 2024 (MVMR-cML-bias-correction), and the LDSC, GCTA/mtCOJO,
-and TwoSampleMR software stacks.
+## Simulations
 
----
+Start with a small run:
+
+```r
+small <- run_simulations("smoke")
+names(small)
+small$population_factors
+
+# Save generated tables, settings, and session information
+run_simulations("smoke", output_dir = "smoke_results")
+```
+
+The default smoke run produces nine tables. It uses three replicates and
+smaller individual-level samples to check that the code runs. Use the full
+settings to assess the statistical results.
+
+| Mode | Experiment | Default replicates |
+| --- | --- | --- |
+| `factors` | Population and case-control factors | Deterministic |
+| `population` | No-collider model | 500 |
+| `casecontrol` | Four case fractions | 200 |
+| `collider` | Unit-variance collider model | 300 |
+| `mr` | Univariable and multivariable MR | 100 and 500 |
+| `multicovariate` | One, three, and five covariates | 300 |
+| `bias` | Illustrative bias-slope regressions | 200 |
+| `end-to-end` | Estimated CWLS and Slope-Hunter correction and MR | 200 per design |
+| `all` | All experiments | As above |
+
+```r
+population <- run_simulations("population", output_dir = "results/population")
+collider <- run_simulations("collider", replicates = 100)
+full <- run_simulations("end-to-end", output_dir = "results/end_to_end", cores = 1)
+```
+
+`replicates` overrides the default count. Full end-to-end runs use 50,000 GWAS
+individuals and independent samples for calibration and other associations.
+They can take hours on one core. Use `cores = 1` on Windows; additional workers
+on other systems require more memory. Fixed seeds make each run reproducible
+within the same software environment. The simulation entry points restore the
+caller's random-number state. Files are written only when `output_dir` is set.
+
+The `bias` mode evaluates residual-trimmed and precision-weighted regressions.
+The published CWLS and Slope-Hunter methods are evaluated in `end-to-end` mode.
+The disease labels in the MR experiments refer to simulated traits. Output
+columns containing `score` retain the original conditional-prevalence meaning;
+the legacy end-to-end method label `Dudbridge` denotes CWLS.
+
+A command-line runner is included in `inst/scripts/run_simulations.R`:
+
+```sh
+Rscript cbcGWAS/inst/scripts/run_simulations.R smoke default smoke_results
+```
+
+After installation, locate it with
+`system.file("scripts", "run_simulations.R", package = "cbcGWAS")`.
+
+## Optional estimators
+
+CWLS, Slope-Hunter, and MR-RAPS wrappers require their respective packages.
+The full end-to-end experiment needs all three. Install them separately:
+
+```r
+install.packages(c("remotes", "mr.raps"))
+remotes::install_github("DudbridgeLab/indexevent")
+remotes::install_github("Osmahmoud/SlopeHunter")
+```
+
+The revision used R 4.5.1, statmod 1.5.2, mvtnorm 1.4-2, indexevent 0.2.0,
+SlopeHunter 1.1.0, and mr.raps 0.4.3. Core conversion and smoke simulations
+do not require the optional estimators.
+
+## Development
+
+The source includes help pages, examples, input checks, and tests for numerical
+identities, regression estimates, calibration, and simulation reproducibility.
+
+```sh
+R CMD build cbcGWAS
+R CMD check --no-manual cbcGWAS_0.1.0.tar.gz
+```
+
+Install `testthat` and the suggested estimator packages before a complete
+check. Documentation is generated with `roxygen2::roxygenise("cbcGWAS")`.
+Loading the package does not run simulations, install dependencies, or write
+files. The archive contains source code, documentation, and tests, with no
+manuscript files or saved simulation results.
 
 ## License
 
-MIT. See `LICENSE`.
-
----
-
-## Issues and contact
-
-Please file issues at <https://github.com/chen-siyi7/cbcGWAS/issues>.
-For correspondence regarding the manuscript, contact Siyi Chen at LSU
-Health Sciences Center New Orleans (email in the manuscript).
+A redistribution license has not yet been selected by the author. See `LICENSE`.
