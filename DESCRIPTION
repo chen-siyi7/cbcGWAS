@@ -1,0 +1,24 @@
+Package: cbcGWAS
+Type: Package
+Title: Liability-Scale Conversion for Covariate-Adjusted GWAS
+Version: 0.1.0
+Authors@R: person("Siyi", "Chen", email = "sche11@lsuhsc.edu",
+    role = c("aut", "cre"))
+Description: Computes marginal, conditional-prevalence, and working-logistic
+    conversion factors for covariate-adjusted binary genome-wide association
+    studies (GWAS). Provides population and case-control calculations under a
+    Gaussian liability model, calibration helpers, interfaces to published
+    collider-bias estimators, and reproducible simulations for liability-scale
+    genetic associations and Mendelian randomization. The conversion is local
+    in small genetic effects and requires the model and identification
+    assumptions described in the function documentation.
+License: file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.1.0)
+Imports: stats, utils, parallel, statmod, mvtnorm
+Suggests: testthat (>= 3.0.0), indexevent, SlopeHunter, mr.raps
+Remotes: DudbridgeLab/indexevent, Osmahmoud/SlopeHunter
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+NeedsCompilation: no
